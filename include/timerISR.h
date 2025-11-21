@@ -25,8 +25,8 @@ void TimerSet(unsigned long M) {
 
 void TimerOn() {
 	// AVR timer/counter controller register TCCR1
-	TCCR2A = 0x00;
-  TCCR2B 	= 0x0B;	// bit3 = 1: CTC mode (clear timer on compare)
+	TCCR2A = 0x02;
+    TCCR2B 	= 0x04;	// bit3 = 1: CTC mode (clear timer on compare)
 					// bit2bit1bit0=011: prescaler /64
 					// 00001011: 0x0B
 					// SO, 16 MHz clock or 16,000,000 /64 = 250,000 ticks/s
@@ -80,17 +80,6 @@ ISR(TIMER2_COMPA_vect)
 	}
 
 }
-
-int TimerOverflow = 0;
-
-ISR(TIMER1_OVF_vect)
-{
-	TimerOverflow++;	/* Increment Timer Overflow count */
-}
-
-
-
-
 
 
 #endif // TIMER_H
