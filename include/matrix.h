@@ -33,7 +33,7 @@ const keys matrix_map[5][4] = {
 
 
 int columns[4] = {PD2,PD3,PD4,PD5};
-int rows[5] = {PB0,PB1,PB2,PB3,PB4};
+int rows[5] = {PB0,PB2,PB3,PB4,PB5};
 
 
 volatile bool matrixPressed = 0;
@@ -47,8 +47,8 @@ volatile keys currentKey =  off; // value can be read or modified asynchronously
    
 
 
-    PORTB =  (1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4);
-    DDRB  = ~((1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4));
+    PORTB =  (1 << PB0) | (1 << PB2) | (1 << PB3) | (1 << PB4) | (1 << PB5);
+    DDRB  &= ~((1 << PB0) | (1 << PB2) | (1 << PB3) | (1 << PB4) | (1 << PB5));
    
 }
 
@@ -60,7 +60,7 @@ void matrix_read() {
 		int currrentColumn = columns[j];
 
          PORTD =  (1<<PD2) | (1<<PD3) | (1<<PD4) | (1<<PD5);
-         PORTD = ~(1<<currrentColumn);
+         PORTD &= ~(1<<currrentColumn);
 
 
 		for (int i=0; i < 5; i++) {

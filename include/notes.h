@@ -69,7 +69,7 @@ const chord Fmin  = {F4,GS4,C5};
 
 const chord Cmin  = {C4,DS4,G4};
 
-const chord Gmin  = {G4,GS4,D5};
+const chord Gmin  = {G4,AS4,D5};
 
 const chord Dmin  = {D4,F4,A4};
 
@@ -86,15 +86,17 @@ const chord quiet = {0.0, 0.0, 0.0};
 
 double mixing(chord c, unsigned long n) {
     double mixed = 0.0;
-    double t = (double)n / 22050.0;
+    double t = (double)n / 20000.0;
 
     double s1 = sin(2.0 * M_PI * c.root * t);
     double s2 = sin(2.0 * M_PI * c.third * t);
     double s3 = sin(2.0 * M_PI * c.fifth * t);
 
-    double chordMixed = (s1 + s2 + s3) / 3.0;
+    double chordMixed = (s1 + s2 + s3) * 0.33;
 
 
+    if (drumsOn) {
+        
     double snare = sin(2.0 * M_PI * SNAREF * t) * snareHit;
     snareHit *= 0.90;  
 
@@ -102,7 +104,6 @@ double mixing(chord c, unsigned long n) {
     double hat = sin(2.0 * M_PI * HIHATF* t) * hatHit;
     hatHit *= 0.85;  
  
-    if (drumsOn) {
         mixed = (chordMixed + snare + hat) / 3.0;
     } else {
         mixed = chordMixed;
