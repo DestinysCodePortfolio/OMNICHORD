@@ -54,5 +54,23 @@ void serial_println(long num, int base = 10){
 
   serial_println(str);//print from str to end of arr
 }
+void serial_print_num(long num) {
+    char buffer[16];
+    int i = 14;
+    buffer[15] = '\0';
+  
+    if (num == 0) {
+        serial_char('0');
+        serial_char('\n');
+        return;
+    }
+
+    while (num > 0 && i >= 0) {
+        buffer[i--] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    serial_println(&buffer[i+1]);
+}
 
 #endif

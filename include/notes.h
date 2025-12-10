@@ -1,10 +1,10 @@
 
-#include <math.h>
-#include "matrix.h" 
 
 #ifndef NOTES_H
 #define NOTES_H
 
+#include <math.h>
+#include "matrix.h" 
 
 typedef struct {
 	double root;
@@ -82,35 +82,54 @@ const chord Bmin  = {B4,D5,FS5};
 const chord quiet = {0.0, 0.0, 0.0};
 
 
-
-
 double mixing(chord c, unsigned long n) {
+    static double lastOutput = 0.0;
+    static unsigned long lastChordChange = 0;
+    static chord lastChord = {0, 0, 0};
+    
     double mixed = 0.0;
     double t = (double)n / 20000.0;
 
+    // Detect chord change
+    if (c.root != lastChord.root || c.third != lastChord.third || c.fifth != lastChord.fifth) {
+        lastChordChange = n;
+        lastChord = c;
+    }
+
+    // Calculate envelope (fade in over 0.05 seconds)
+    double envelope = 1.0;
+    unsigned long timeSinceChange = n - lastChordChange;
+    if (timeSinceChange < 1000) {  // 1000 samples = 0.05 seconds at 20kHz
+        envelope = (double)timeSinceChange / 1000.0;
+    }
+
+    // Generate sine waves
     double s1 = sin(2.0 * M_PI * c.root * t);
     double s2 = sin(2.0 * M_PI * c.third * t);
     double s3 = sin(2.0 * M_PI * c.fifth * t);
 
-    double chordMixed = (s1 + s2 + s3) * 0.33;
-
+    double chordMixed = (s1 + s2 + s3) * 0.5 * envelope;
 
     if (drumsOn) {
-        
-    double snare = sin(2.0 * M_PI * SNAREF * t) * snareHit;
-    snareHit *= 0.90;  
+        double snare = sin(2.0 * M_PI * SNAREF * t) * snareHit;
+        snareHit *= 0.90;  
 
-
-    double hat = sin(2.0 * M_PI * HIHATF* t) * hatHit;
-    hatHit *= 0.85;  
+        double hat = sin(2.0 * M_PI * HIHATF * t) * hatHit;
+        hatHit *= 0.85;  
  
-        mixed = (chordMixed + snare + hat) / 3.0;
+        mixed = (chordMixed + snare + hat) / 2.0;
     } else {
         mixed = chordMixed;
     }
 
-    return mixed;
+    // Low-pass filter
+    double alpha = 0.3;
+    double filtered = alpha * mixed + (1.0 - alpha) * lastOutput;
+    lastOutput = filtered;
+
+    return filtered;
 }
+#endif
 
 
 
@@ -119,8 +138,3 @@ double mixing(chord c, unsigned long n) {
 
 
 
-
-
-
-
-#endif 
