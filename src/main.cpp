@@ -1,6 +1,7 @@
-```c
+
 #include "timerISR.h"
 #include "helper.h"
+#include "periph.h"
 #include "periph.h"
 #include "notes.h"
 #include "matrix.h"
