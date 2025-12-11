@@ -5,96 +5,158 @@
 #include <util/delay.h>
 #include <stdint.h>
 
-#define F_CPU 16000000UL       // Change if using different clock
-#define TWI_FREQ 100000UL      // 100kHz I2C
+#ifndef F_CPU
+#define F_CPU 16000000UL
+#endif
 
-#define CAP1203_ADDR 0x28      // 7-bit address
+#define TWI_FREQ 100000UL
+#define CAP1203_ADDR 0x28
 
-//-----------------------------------------------------
-// TWI LOW-LEVEL
-//-----------------------------------------------------
+#define TW_START   0x08
+#define TW_REP_START 0x10
+#define TW_MT_SLA_ACK 0x18
+#define TW_MT_DATA_ACK 0x28
+#define TW_MR_SLA_ACK 0x40
+#define TW_MR_DATA_ACK 0x50
+#define TW_MR_DATA_NACK 0x58
 
 void TWI_init() {
-    // Set SCL frequency: SCL = F_CPU / (16 + 2*TWBR*Prescaler)
-    TWSR = 0x00;            // prescaler = 1
+    DDRC &= ~((1 << PC4) | (1 << PC5));
+    PORTC |= (1 << PC4) | (1 << PC5);
+    
+    TWSR = 0x00;
     TWBR = ((F_CPU / TWI_FREQ) - 16) / 2;
+    TWCR = (1 << TWEN);
 }
 
-void TWI_start() {
+uint8_t TWI_start() {
     TWCR = (1<<TWINT)|(1<<TWSTA)|(1<<TWEN);
-    while (!(TWCR & (1<<TWINT)));
+    uint16_t timeout = 0;
+    while (!(TWCR & (1<<TWINT)) && timeout++ < 1000);
+    if (timeout >= 1000) return 0;
+    return 1;
 }
 
 void TWI_stop() {
     TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWSTO);
+    _delay_us(10);
 }
 
-void TWI_write(uint8_t data) {
-    TWCR = (1<<TWINT)|(1<<TWEN);
+uint8_t TWI_write(uint8_t data) {
     TWDR = data;
-    while (!(TWCR & (1<<TWINT)));
+    TWCR = (1<<TWINT)|(1<<TWEN);
+    uint16_t timeout = 0;
+    while (!(TWCR & (1<<TWINT)) && timeout++ < 1000);
+    if (timeout >= 1000) return 0;
+    return 1;
 }
 
 uint8_t TWI_read_ACK() {
     TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWEA);
-    while (!(TWCR & (1<<TWINT)));
+    uint16_t timeout = 0;
+    while (!(TWCR & (1<<TWINT)) && timeout++ < 1000);
     return TWDR;
 }
 
 uint8_t TWI_read_NACK() {
     TWCR = (1<<TWINT)|(1<<TWEN);
-    while (!(TWCR & (1<<TWINT)));
+    uint16_t timeout = 0;
+    while (!(TWCR & (1<<TWINT)) && timeout++ < 1000);
     return TWDR;
 }
 
-//-----------------------------------------------------
-// CAP1203 REGISTER DEFINITIONS
-//-----------------------------------------------------
-#define CAP_MAIN_CONTROL      0x00
-#define CAP_BUTTON_STATUS     0x03
-#define CAP_SENSOR_INPUT      0x10
-
-#define CAP_LED_OUTPUT_CONTROL 0x74
-
-//-----------------------------------------------------
-// CAP1203 FUNCTIONS
-//-----------------------------------------------------
-
-void CAP1203_write(uint8_t reg, uint8_t value) {
-    TWI_start();
-    TWI_write(CAP1203_ADDR << 1); // write mode
-    TWI_write(reg);
-    TWI_write(value);
+uint8_t CAP1203_write(uint8_t reg, uint8_t value) {
+    if (!TWI_start()) return 0;
+    if (!TWI_write(CAP1203_ADDR << 1)) {
+        TWI_stop();
+        return 0;
+    }
+    if (!TWI_write(reg)) {
+        TWI_stop();
+        return 0;
+    }
+    if (!TWI_write(value)) {
+        TWI_stop();
+        return 0;
+    }
     TWI_stop();
+    return 1;
 }
 
 uint8_t CAP1203_read(uint8_t reg) {
-    uint8_t data;
-
-    TWI_start();
-    TWI_write(CAP1203_ADDR << 1); // write
-    TWI_write(reg);
-
-    TWI_start();
-    TWI_write((CAP1203_ADDR << 1) | 1); // read
+    uint8_t data = 0;
+    
+    if (!TWI_start()) return 0xFF;
+    if (!TWI_write(CAP1203_ADDR << 1)) {
+        TWI_stop();
+        return 0xFF;
+    }
+    if (!TWI_write(reg)) {
+        TWI_stop();
+        return 0xFF;
+    }
+    
+    if (!TWI_start()) {
+        TWI_stop();
+        return 0xFF;
+    }
+    if (!TWI_write((CAP1203_ADDR << 1) | 1)) {
+        TWI_stop();
+        return 0xFF;
+    }
+    
     data = TWI_read_NACK();
     TWI_stop();
-
+    
     return data;
 }
 
 void CAP1203_init() {
-    CAP1203_write(CAP_MAIN_CONTROL, 0x00); // reset interrupt flags
+    TWI_init();
+    _delay_ms(100);
+    
+    uint8_t productID = CAP1203_read(0xFD);
+    if (productID != 0x6D) {
+        return;
+    }
+    
+    CAP1203_write(0x00, 0x00);
     _delay_ms(10);
+    
+    CAP1203_write(0x1F, 0x2F);
+    _delay_ms(10);
+    
+    CAP1203_write(0x21, 0x07);
+    _delay_ms(10);
+    
+    CAP1203_write(0x24, 0x39);
+    _delay_ms(10);
+    
+    CAP1203_write(0x26, 0x00);
+    _delay_ms(10);
+    
+    CAP1203_write(0x27, 0x20);
+    _delay_ms(10);
+    
+    CAP1203_write(0x28, 0x20);
+    _delay_ms(10);
+    
+    CAP1203_write(0x00, 0x00);
+    _delay_ms(50);
 }
 
-// Returns 3-bit mask of touched pads (bit 0,1,2)
 uint8_t CAP1203_getTouch() {
-    return CAP1203_read(CAP_SENSOR_INPUT);
+    uint8_t status = CAP1203_read(0x03);
+    
+    if (status != 0xFF && (status & 0x07)) {
+        CAP1203_write(0x00, 0x00);
+    }
+    
+    return status & 0x07;
 }
 
 void CAP1203_setLED(uint8_t ledMask) {
-    CAP1203_write(CAP_LED_OUTPUT_CONTROL, ledMask & 0x07);
+    CAP1203_write(0x74, ledMask & 0x07);
 }
 
 #endif

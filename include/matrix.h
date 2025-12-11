@@ -69,7 +69,7 @@ void matrix_read() {
         for (int i = 0; i < 5; i++) {  // i = row index
             if ((PIND & (1 << rows[i])) == 0) {  // Read from PIND
                 currentKey = matrix_map[i][j];  // [row][column]
-                serial_println(currentKey);
+               // serial_println(currentKey);
                 
                 if (currentKey == drums) {
                     drumsOn = !drumsOn; // Toggle drums

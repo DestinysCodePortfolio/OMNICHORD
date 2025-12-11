@@ -1,68 +1,56 @@
-#ifndef SerialAtmega
-#define SerialAtmega
+#ifndef SERIALATMEGA_H
+#define SERIALATMEGA_H
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+void serial_init (int baud) {
+    // 16 MHz clock hardcoded
+    UBRR0 = (uint16_t)(((16000000UL / (16UL * baud))) - 1);
 
-void serial_init (int baud ) {
-    UBRR0 = (((16000000/(baud*16UL)))-1) ; // Set baud rate
-    UCSR0B |= (1 << TXEN0 ); 
-    UCSR0B |= (1 << RXEN0 ); 
-    UCSR0B |= (1 << RXCIE0 );
-    UCSR0B &= ~(1 << RXCIE0 );
-    UCSR0C = (3 << UCSZ00 ); 
+    UCSR0B = 0;
+    UCSR0B |= (1 << TXEN0);  // enable TX
+    UCSR0B |= (1 << RXEN0);  // enable RX
+    UCSR0B &= ~(1 << RXCIE0); // no RX interrupt
+
+    // 8N1
+    UCSR0C = 0;
+    UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
 }
 
-
-//sends a char
-void serial_char(char ch )
-{
-    while (( UCSR0A & (1 << UDRE0 )) == 0);
-    UDR0 = ch ;
+// send a char
+void serial_char(char ch) {
+    while ((UCSR0A & (1 << UDRE0)) == 0) {
+        // wait for buffer empty
+    }
+    UDR0 = ch;
 }
 
-//sends a string
-void serial_println(char *str){
-    for (int i; str[i] != '\0'; i++){
+// send a C-string with newline
+void serial_println(char *str) {
+    int i = 0;                         // IMPORTANT: initialize i
+    while (str[i] != '\0') {
         serial_char(str[i]);
+        i++;
     }
     serial_char('\n');
 }
 
-//sends an long. can be used with integers
-void serial_println(long num, int base = 10){
-  char arr[sizeof(long)*8 + 1]; //array with size of largest possible number of digits for long
-  char *str = &arr[sizeof(arr) - 1]; //point to last val in buff
-  *str = '\0'; //set last val in buff to null terminator
-
-  if(num < 0){ //if negative, print '-' and turn n to positive
-    serial_char('-');
-    num = -num;
-  }
-
-  if(num == 0){// if 0, print 0
-    serial_char(48);
-  }else{//else, fill up arr starting from the last number
-    while(num) {
-        char temp = num % base;//get digit
-        num /= base;//shift to next digit
-        str--;//go back a spot in arr
-        *str = temp < 10 ? temp + '0' : temp + 'A' - 10; // "+ A - 10" for A-F hex vals
-    }
-  }
-
-  serial_println(str);//print from str to end of arr
-}
+// simple decimal printing helper
 void serial_print_num(long num) {
     char buffer[16];
     int i = 14;
     buffer[15] = '\0';
-  
+
     if (num == 0) {
         serial_char('0');
         serial_char('\n');
         return;
+    }
+
+    if (num < 0) {
+        serial_char('-');
+        num = -num;
     }
 
     while (num > 0 && i >= 0) {
