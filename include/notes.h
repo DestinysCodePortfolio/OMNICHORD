@@ -90,16 +90,14 @@ double mixing(chord c, unsigned long n) {
     double mixed = 0.0;
     double t = (double)n / 20000.0;
 
-    // Detect chord change
+  
     if (c.root != lastChord.root || c.third != lastChord.third || c.fifth != lastChord.fifth) {
         lastChordChange = n;
         lastChord = c;
     }
-
-    // Calculate envelope (fade in over 0.05 seconds)
     double envelope = 1.0;
     unsigned long timeSinceChange = n - lastChordChange;
-    if (timeSinceChange < 1000) {  // 1000 samples = 0.05 seconds at 20kHz
+    if (timeSinceChange < 1000) {  
         envelope = (double)timeSinceChange / 1000.0;
     }
 
