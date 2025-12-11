@@ -20,6 +20,8 @@
 #define TW_MR_DATA_ACK 0x50
 #define TW_MR_DATA_NACK 0x58
 
+// THIS ITEM HEAVILY RELIED ON THE ARDUINO LIBRARY SO I TRANSLATED IT INTO WHAT I COULD FOR THE SCOPE OF THOS PROJECT
+
 void TWI_init() {
     DDRC &= ~((1 << PC4) | (1 << PC5));
     PORTC |= (1 << PC4) | (1 << PC5);
@@ -153,10 +155,6 @@ uint8_t CAP1203_getTouch() {
     }
     
     return status & 0x07;
-}
-
-void CAP1203_setLED(uint8_t ledMask) {
-    CAP1203_write(0x74, ledMask & 0x07);
 }
 
 #endif

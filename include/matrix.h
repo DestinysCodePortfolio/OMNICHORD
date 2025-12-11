@@ -74,19 +74,18 @@ void matrix_read() {
                     matrixPressed = 0; 
                 }
                 else if (currentKey == silent) {
-                    // Silent button: explicitly set to off and no matrix press
+                    //SILENCE AKA OFF BUTTON
                     matrixPressed = 0;
                     currentKey = off;
                 }
                 else {
-                    matrixPressed = 1;  // Normal chord button
+                    matrixPressed = 1;
                 }
                 
-                // Wait for button release (debouncing)
+                
                 while ((PIND & (1 << rows[i])) == 0) {
                     _delay_ms(10);
                 }
-                _delay_ms(50); // Extra debounce
                 
                 return;
             }
