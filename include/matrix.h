@@ -28,14 +28,14 @@ const keys matrix_map[5][4] = {
     {E,    F,    G,      Am},      // Row 1 (PD3)
     {Bm,   Cm,   Dm,     Em},      // Row 2 (PD4)
     {Fm,   Gm,   Eb,     Bb},      // Row 3 (PD5)
-    {Ebm,  Bbm,  silent, drums}    // Row 4 (PD6) - 🔇 is silent, last is drums
+    {Ebm,  Bbm,  silent, drums}    // Row 4 (PD7) - 🔇 is silent, last is drums
 };
 
 // Columns on Port B (outputs) - Pins 10, 11, 12, 13
 int columns[4] = {PB2, PB3, PB4, PB5};
 
 // Rows on Port D (inputs) - Pins 2, 3, 4, 5, 6
-int rows[5] = {PD2, PD3, PD4, PD5, PD6};
+int rows[5] = {PD2, PD3, PD4, PD5, PD7};
 
 volatile bool matrixPressed = 0;
 volatile keys currentKey = off;
@@ -45,9 +45,9 @@ void matrix_init() {
     DDRB  |= (1 << PB2) | (1 << PB3) | (1 << PB4) | (1 << PB5);
     PORTB |= (1 << PB2) | (1 << PB3) | (1 << PB4) | (1 << PB5);  // Set HIGH
    
-    // Configure rows as INPUTS with pullups (PD2-PD6 on Port D)
-    DDRD  &= ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6));
-    PORTD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6);
+    // Configure rows as INPUTS with pullups (PD2-PD7 on Port D)
+    DDRD  &= ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD7));
+    PORTD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD7);
 }
 
 void matrix_read() {
