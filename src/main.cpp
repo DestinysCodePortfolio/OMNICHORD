@@ -1,3 +1,5 @@
+#define F_CPU 16000000UL
+
 #include "timerISR.h"
 #include "helper.h"
 #include "periph.h"
@@ -11,10 +13,11 @@
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 
-#define NUM_TASKS 4
-#define SUSTAIN_TICKS 2
+#define NUM_TASKS      4
+#define SUSTAIN_TICKS  2
 
-chord currChord = quiet;
+
+chord currChord = Cmaj;
 
 typedef struct _task {
     signed char state;
@@ -24,16 +27,18 @@ typedef struct _task {
 } task;
 
 const unsigned long TASK1_PERIOD = 200;
-const unsigned long TASK2_PERIOD = 500;
+const unsigned long TASK2_PERIOD = 100;
 const unsigned long TASK3_PERIOD = 500;
 const unsigned long TASK4_PERIOD = 500;
-const unsigned long GCD_PERIOD = 100;
+const unsigned long GCD_PERIOD   = 100;
 
 task tasks[NUM_TASKS];
 
-volatile uint16_t buzzerCounter = 0;
+volatile uint16_t buzzerCounter    = 0;
 volatile uint16_t buzzerHalfPeriod = 0;
-volatile uint8_t buzzerActive = 0;
+volatile uint8_t  buzzerActive     = 0;
+
+
 
 void Buzzer_init() {
     DDRD |= (1 << PD6);
@@ -45,16 +50,16 @@ void Buzzer_setFreq(uint16_t freq) {
         buzzerHalfPeriod = 31250 / freq;
         if (buzzerHalfPeriod < 1) buzzerHalfPeriod = 1;
         buzzerCounter = 0;
-        buzzerActive = 1;
+        buzzerActive  = 1;
     } else {
         buzzerHalfPeriod = 0;
-        buzzerActive = 0;
+        buzzerActive     = 0;
         PORTD &= ~(1 << PD6);
     }
 }
 
 void Buzzer_off() {
-    buzzerActive = 0;
+    buzzerActive     = 0;
     buzzerHalfPeriod = 0;
     PORTD &= ~(1 << PD6);
 }
@@ -62,81 +67,78 @@ void Buzzer_off() {
 void BuzzerTimer_init() {
     TCCR0A = (1 << WGM01);
     TCCR0B = (1 << CS00);
-    OCR0A = 255;
-    TCNT0 = 0;
+    OCR0A  = 255;
+    TCNT0  = 0;
     TIMSK0 = (1 << OCIE0A);
 }
 
-enum chord_states { 
-    chords_init, 
-    silence, 
-    play_chord 
+
+
+enum chord_states {
+    chords_init,
+    chords_run
 };
 
 int TickFct_chords(int state) {
     switch (state) {
         case chords_init:
-            state = silence;
+            state = chords_run;
             break;
-            
-        case silence:
+
+        case chords_run:
             matrix_read();
-            if (matrixPressed) state = play_chord;
             break;
-            
-        case play_chord:
-            matrix_read();
-            state = play_chord;
-            break;
-            
+
         default:
+            state = chords_init;
             break;
     }
 
-    switch (state) {
-        case play_chord:
-            if (currentKey == Eb) currChord = Ebmaj;
-            else if (currentKey == Bb) currChord = Bbmaj;
-            else if (currentKey == F) currChord = Fmaj;
-            else if (currentKey == C) currChord = Cmaj;
-            else if (currentKey == G) currChord = Gmaj;
-            else if (currentKey == D) currChord = Dmaj;
-            else if (currentKey == A) currChord = Amaj;
-            else if (currentKey == E) currChord = Emaj;
-            else if (currentKey == B) currChord = Bmaj;
-            else if (currentKey == Ebm) currChord = Ebmin;
-            else if (currentKey == Bbm) currChord = Bbmin;
-            else if (currentKey == Fm) currChord = Fmin;
-            else if (currentKey == Cm) currChord = Cmin;
-            else if (currentKey == Gm) currChord = Gmin;
-            else if (currentKey == Dm) currChord = Dmin;
-            else if (currentKey == Em) currChord = Emin;
-            else if (currentKey == Bm) currChord = Bmin;
-            else if (currentKey == Am) currChord = Amin;
-            else if (currentKey == drums) drumsOn = true;
-            break;
-            
-        default:
-            break;
+
+    if (state == chords_run && matrixPressed) {
+        if (currentKey == Eb)  currChord = Ebmaj;
+        else if (currentKey == Bb)  currChord = Bbmaj;
+        else if (currentKey == F)   currChord = Fmaj;
+        else if (currentKey == C)   currChord = Cmaj;
+        else if (currentKey == G)   currChord = Gmaj;
+        else if (currentKey == D)   currChord = Dmaj;
+        else if (currentKey == A)   currChord = Amaj;
+        else if (currentKey == E)   currChord = Emaj;
+        else if (currentKey == B)   currChord = Bmaj;
+
+        else if (currentKey == Ebm) currChord = Ebmin;
+        else if (currentKey == Bbm) currChord = Bbmin;
+        else if (currentKey == Fm)  currChord = Fmin;
+        else if (currentKey == Cm)  currChord = Cmin;
+        else if (currentKey == Gm)  currChord = Gmin;
+        else if (currentKey == Dm)  currChord = Dmin;
+        else if (currentKey == Em)  currChord = Emin;
+        else if (currentKey == Bm)  currChord = Bmin;
+        else if (currentKey == Am)  currChord = Amin;
+
+        else if (currentKey == drums) drumsOn = true;
+  
     }
-    
+
     return state;
 }
 
-enum strumplate_states { 
-    strum_init, 
-    strum_wait, 
-    strum_play 
+
+enum strumplate_states {
+    strum_init,
+    strum_wait,
+    strum_play
 };
 
 int TickFct_strumplate(int state) {
     static uint8_t sustainTicks = 0;
 
     uint8_t touchMask = CAP1203_getTouch() & 0x07;
-    uint8_t region1 = touchMask & 0x01;
-    uint8_t region2 = touchMask & 0x02;
-    uint8_t region3 = touchMask & 0x04;
+    uint8_t region1   = touchMask & 0x01;
+    uint8_t region2   = touchMask & 0x02;
+    uint8_t region3   = touchMask & 0x04;
     uint8_t anyTouched = (touchMask != 0);
+
 
     PORTC = (PORTC & ~0x07) | (touchMask & 0x07);
 
@@ -150,13 +152,13 @@ int TickFct_strumplate(int state) {
         case strum_wait:
             if (anyTouched && currChord.root > 50.0) {
                 double baseFreq = 0.0;
-                
-                if (region1) baseFreq = currChord.root;
+
+                if      (region1) baseFreq = currChord.root;
                 else if (region2) baseFreq = currChord.third;
                 else if (region3) baseFreq = currChord.fifth;
 
                 if (baseFreq > 50.0) {
-                    uint16_t freq = (uint16_t)(baseFreq * 2.0);
+                    uint16_t freq = (uint16_t)(baseFreq * 2.0); // octave up
                     Buzzer_setFreq(freq);
                     sustainTicks = SUSTAIN_TICKS;
                     state = strum_play;
@@ -170,19 +172,20 @@ int TickFct_strumplate(int state) {
         case strum_play:
             if (anyTouched && currChord.root > 50.0) {
                 double baseFreq = 0.0;
-                
-                if (region1) baseFreq = currChord.root;
+
+                if      (region1) baseFreq = currChord.root;
                 else if (region2) baseFreq = currChord.third;
                 else if (region3) baseFreq = currChord.fifth;
 
                 if (baseFreq > 50.0) {
-                    uint16_t freq = (uint16_t)(baseFreq * 2.0);
+                    uint16_t freq = (uint16_t)(baseFreq * 2.0); 
                     Buzzer_setFreq(freq);
-                    sustainTicks = SUSTAIN_TICKS;
+                    sustainTicks = SUSTAIN_TICKS; 
                 }
             } else {
                 if (sustainTicks > 0 && currChord.root > 50.0) {
                     sustainTicks--;
+                   
                 } else {
                     Buzzer_off();
                     sustainTicks = 0;
@@ -199,29 +202,32 @@ int TickFct_strumplate(int state) {
     return state;
 }
 
-enum drum_states { 
-    drum_init, 
-    idle_drums, 
-    playDrums 
+
+
+enum drum_states {
+    drum_init,
+    idle_drums,
+    playDrums
 };
 
 int TickFct_drums(int state) {
     static int step = 0;
-    
+
     switch (state) {
         case drum_init:
             state = idle_drums;
             break;
-            
+
         case idle_drums:
             if (drumsOn) state = playDrums;
             break;
-            
+
         case playDrums:
             if (!drumsOn) state = idle_drums;
             break;
-            
+
         default:
+            state = drum_init;
             break;
     }
 
@@ -231,19 +237,21 @@ int TickFct_drums(int state) {
             if (step == 4 || step == 12) snareHit = 1.0;
             step = (step + 1) % 16;
             break;
-            
+
         default:
             break;
     }
-    
+
     return state;
 }
 
-enum button_states { 
-    button_init, 
-    button_idle, 
-    reset_press, 
-    reset_release 
+
+
+enum button_states {
+    button_init,
+    button_idle,
+    reset_press,
+    reset_release
 };
 
 int TickFct_button(int state) {
@@ -251,35 +259,39 @@ int TickFct_button(int state) {
         case button_init:
             state = button_idle;
             break;
-            
+
         case button_idle:
             state = button_idle;
             break;
-            
+
         case reset_press:
             state = reset_press;
             break;
-            
+
         case reset_release:
             state = reset_release;
             break;
-            
+
         default:
+            state = button_init;
             break;
     }
-    
     return state;
 }
 
+
+
 void TimerISR() {
     for (unsigned int i = 0; i < NUM_TASKS; i++) {
-        if (tasks[i].elapsedTime == tasks[i].period) {
+        if (tasks[i].elapsedTime >= tasks[i].period) {
             tasks[i].state = tasks[i].TickFct(tasks[i].state);
             tasks[i].elapsedTime = 0;
         }
         tasks[i].elapsedTime += GCD_PERIOD;
     }
 }
+
+
 
 ISR(TIMER0_COMPA_vect) {
     if (buzzerActive && buzzerHalfPeriod > 0) {
@@ -291,12 +303,14 @@ ISR(TIMER0_COMPA_vect) {
     }
 }
 
+
+
 ISR(TIMER1_COMPA_vect) {
     static uint8_t sampleDiv = 0;
-    
+
     if (++sampleDiv < 8) return;
     sampleDiv = 0;
-    
+
     static const uint8_t sineTable[64] PROGMEM = {
         128, 140, 152, 165, 176, 187, 197, 206,
         213, 220, 225, 229, 231, 233, 233, 231,
@@ -306,7 +320,7 @@ ISR(TIMER1_COMPA_vect) {
          23,  23,  25,  27,  31,  36,  43,  50,
          59,  69,  80,  91, 104, 116, 128, 128
     };
-    
+
     static uint16_t phase0 = 0;
     static uint16_t phase1 = 0;
     static uint16_t phase2 = 0;
@@ -317,26 +331,24 @@ ISR(TIMER1_COMPA_vect) {
     static uint16_t inc1 = 0;
     static uint16_t inc2 = 0;
     static double lastRoot = 0;
-    
+
     if (currChord.root != lastRoot) {
         lastRoot = currChord.root;
         if (currChord.root > 50.0) {
-            inc0 = (uint16_t)(currChord.root * 8.192 * 0.998);
+            inc0 = (uint16_t)(currChord.root  * 8.192 * 0.998);
             inc1 = (uint16_t)(currChord.third * 8.192);
             inc2 = (uint16_t)(currChord.fifth * 8.192 * 1.002);
         } else {
-            inc0 = 0;
-            inc1 = 0;
-            inc2 = 0;
+            inc0 = inc1 = inc2 = 0;
         }
     }
-    
+
     uint8_t chordActive = (inc0 > 0) ? 1 : 0;
-    
+
     if (chordActive && !lastChordActive) {
         envelope = 0;
     }
-    
+
     envTick++;
     if (envTick >= 8) {
         envTick = 0;
@@ -348,18 +360,18 @@ ISR(TIMER1_COMPA_vect) {
         }
     }
     lastChordActive = chordActive;
-    
+
     phase0 += inc0;
     phase1 += inc1;
     phase2 += inc2;
-    
+
     uint8_t wave0 = pgm_read_byte(&sineTable[(phase0 >> 10) & 0x3F]);
     uint8_t wave1 = pgm_read_byte(&sineTable[(phase1 >> 10) & 0x3F]);
     uint8_t wave2 = pgm_read_byte(&sineTable[(phase2 >> 10) & 0x3F]);
-    
+
     uint16_t mixed = ((uint16_t)wave0 + wave1 + wave2) / 3;
     mixed = 128 + (((int16_t)mixed - 128) * envelope) / 256;
-    
+
     if (drumsOn && (snareHit > 0.01 || hatHit > 0.01)) {
         static uint16_t lfsr = 0xACE1;
         lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xB400u);
@@ -367,50 +379,82 @@ ISR(TIMER1_COMPA_vect) {
         float drumLevel = (snareHit > hatHit) ? snareHit : hatHit;
         mixed += (int16_t)(noise * drumLevel);
         snareHit *= 0.92;
-        hatHit *= 0.88;
+        hatHit  *= 0.88;
     }
-    
+
     if (mixed > 250) mixed = 250;
-    if (mixed < 5) mixed = 5;
-    
+    if (mixed < 5)   mixed = 5;
+
     OCR1A = (uint8_t)mixed;
 }
 
+// ================= MAIN =================
+
 int main(void) {
+    // Speaker on PB1 (OC1A)
     DDRB = (1 << PB1);
     PORTB = 0x00;
 
-    DDRC = 0x0F;
+    //  PC4/PC5 = SDA/SCL
+    DDRC  = 0x0F;
     PORTC = 0x00;
 
-    DDRD = 0x00;
+
+    DDRD  = 0x00;
     PORTD = 0xFF;
-    DDRD |= (1 << PD1);
+
+    DDRD |= (1 << PD1);   // TX
     PORTD &= ~(1 << PD1);
-    
-    serial_init(9600);
-    sei();
-    
-    serial_println("Starting...");
-    _delay_ms(100);
-    
-    CAP1203_init();
-    _delay_ms(100);
-    
-    // Test read Product ID
-    uint8_t pid = CAP1203_read(0xFD);
-    serial_println("Product ID: ");
-    serial_print_num(pid);
-    serial_println(" (should be 109)");
-    
+
+    Buzzer_init();
+    BuzzerTimer_init();
+
+    ADC_init();
     matrix_init();
 
+    TWI_init();
+    _delay_ms(10);
+    CAP1203_init();
+    _delay_ms(10);
+
+    
+    TCCR1A = (1 << COM1A1) | (1 << WGM11);
+    TCCR1B = (1 << WGM13)  | (1 << WGM12) | (1 << CS10);
+    ICR1   = 255;
+    OCR1A  = 128;
+    TIMSK1 |= (1 << OCIE1A);
+
+    // Tasks
+    tasks[0].period      = TASK1_PERIOD;
+    tasks[0].state       = chords_init;
+    tasks[0].elapsedTime = TASK1_PERIOD;
+    tasks[0].TickFct     = &TickFct_chords;
+
+    tasks[1].period      = TASK2_PERIOD;
+    tasks[1].state       = strum_init;
+    tasks[1].elapsedTime = TASK2_PERIOD;
+    tasks[1].TickFct     = &TickFct_strumplate;
+
+    tasks[2].period      = TASK3_PERIOD;
+    tasks[2].state       = drum_init;
+    tasks[2].elapsedTime = TASK3_PERIOD;
+    tasks[2].TickFct     = &TickFct_drums;
+
+    tasks[3].period      = TASK4_PERIOD;
+    tasks[3].state       = button_init;
+    tasks[3].elapsedTime = TASK4_PERIOD;
+    tasks[3].TickFct     = &TickFct_button;
+
+    TimerSet(GCD_PERIOD);
+    TimerOn();
+
+    serial_init(9600);
+    sei();
+
+);
+
     while (1) {
-        uint8_t t = CAP1203_getTouch();
-        serial_println("Touch: ");
-        serial_print_num(t);
-        serial_println("");
-        _delay_ms(100);
+    
     }
 
     return 0;
