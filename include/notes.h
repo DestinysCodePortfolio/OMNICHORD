@@ -129,6 +129,7 @@ double mixing(chord c, unsigned long n) {
 
     return filtered;
 }
+
 #endif
 
 
